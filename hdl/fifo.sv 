@@ -28,6 +28,8 @@ module fifo #(
     logic [2:0] array_index;
 
     assign s00_axis_tready = 1;
+    assign s00_axis_tstrb = 16'hF;
+    assign m00_axis_tstrb = 16'hF; 
 
     always_ff @(posedge s00_axis_aclk) begin
         case (state)
@@ -66,6 +68,7 @@ module fifo #(
         else begin
             if (state == DUMPING) begin
                 m00_axis_tvalid <= 1;
+                m00_axis_tlast <= 0;
                 m00_axis_tdata <= holding_buffer[array_index << 4 + 15: array_index << 4] // ASSUMES first sample of the 8 in the LSB
                 array_index <= array_index + 1;
                 if (array_index == 7) begin
@@ -81,6 +84,7 @@ module fifo #(
                 array_index <= 0;
                 if (done_dumping) begin
                     done_dumping <= 0;
+                    m00_axis_tlast <= 1;
                 end
             end
         end
