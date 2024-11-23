@@ -32,7 +32,7 @@ module fifo #(
     always_ff @(posedge s00_axis_aclk) begin
         case (state)
             WAITING: begin
-                if (trigger) begin
+                if (laser_trigger) begin
                     state <= FILLING;
                     adc_counter <= 0;
                 end
