@@ -51,6 +51,10 @@ module fifo #(
                     state <= WAITING;
                 end
             end
+
+            default: begin
+                state <= WAITING;
+            end
         endcase
 
 
@@ -111,7 +115,5 @@ module fifo #(
         .rstb(m00_axis_aresetn),
         .doutb(holding_buffer)
     );
-
-
 
 endmodule
