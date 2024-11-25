@@ -1,4 +1,4 @@
-module fifo #(
+module fifo_sv #(
         parameter integer C_S00_AXIS_TDATA_WIDTH  = 128,
         parameter integer C_M00_AXIS_TDATA_WIDTH  = 32
     )
