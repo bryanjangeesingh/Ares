@@ -72,7 +72,7 @@ module fifo_sv #(
             if (state == DUMPING) begin
                 m00_axis_tvalid <= 1;
                 m00_axis_tlast <= 0;
-                m00_axis_tdata <= holding_buffer[array_index << 4 + 15: array_index << 4] // ASSUMES first sample of the 8 in the LSB
+                m00_axis_tdata <= holding_buffer[array_index << 4 + 15: array_index << 4]; // ASSUMES first sample of the 8 in the LSB
                 array_index <= array_index + 1;
                 if (array_index == 7) begin
                     reading_address <= reading_address + 1;
@@ -117,3 +117,5 @@ module fifo_sv #(
     );
 
 endmodule
+
+
