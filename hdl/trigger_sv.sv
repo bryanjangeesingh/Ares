@@ -1,4 +1,4 @@
-module trigger(
+module trigger_sv(
     input wire clk_in, //150 MHz
     input wire rst_in,
     output logic trigger);
