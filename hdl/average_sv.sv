@@ -56,7 +56,7 @@ module average_sv #(
                     if (s00_axis_tvalid) begin
                         // Start collecting 1000 samples per trigger
                         // Accumulate the current sample
-                        accumulator[sample_counter] <= accumulator[sample_counter] + s00_axis_tdata;
+                        accumulator[sample_counter] <= $signed(accumulator[sample_counter]) + $signed(s00_axis_tdata);
                         sample_counter <= sample_counter + 1;
                         
                         if (sample_counter == SAMPLES_PER_TRIGGER-1) begin
@@ -76,7 +76,7 @@ module average_sv #(
                     // Perform averaging and output for all samples
                     if (m00_axis_tready) begin
                         m00_axis_tvalid <= 1;
-                        m00_axis_tdata <= accumulator[output_counter] >> 7;
+                        m00_axis_tdata <= $signed(accumulator[output_counter]) >>> 7;
                         output_counter <= output_counter + 1;
                         if (output_counter == SAMPLES_PER_TRIGGER-2) begin
                             m00_axis_tlast <= 1;
