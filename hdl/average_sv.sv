@@ -1,7 +1,7 @@
 module average_sv #(
         parameter integer C_S00_AXIS_TDATA_WIDTH  = 32,
         parameter integer C_M00_AXIS_TDATA_WIDTH  = 32,
-        parameter integer SAMPLES_PER_TRIGGER = 1024,
+        parameter integer SAMPLES_PER_TRIGGER = 768,
         parameter integer AVERAGES = 128
     )
     (

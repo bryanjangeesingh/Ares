@@ -1,8 +1,8 @@
 module fifo_sv #(
-        parameter integer C_S00_AXIS_TDATA_WIDTH  = 128,
+        parameter integer C_S00_AXIS_TDATA_WIDTH  = 192,
         parameter integer C_M00_AXIS_TDATA_WIDTH  = 32
     )
-    (
+    (                 
     input wire  s00_axis_aclk, s00_axis_aresetn, // ADC axis
     input wire  s00_axis_tlast, s00_axis_tvalid,
     input wire [C_S00_AXIS_TDATA_WIDTH-1 : 0] s00_axis_tdata,
@@ -20,12 +20,14 @@ module fifo_sv #(
 );
     
     typedef enum {WAITING=0, FILLING=1, DUMPING=2} fifo_state;
-    fifo_state state;
+    
+    (* ASYNC_REG = "TRUE" *) fifo_state state;
+
     logic [7:0] adc_counter;
-    logic [127:0] holding_buffer;
-    logic done_dumping;
+    logic [191:0] holding_buffer;
+    (* ASYNC_REG = "TRUE" *) logic done_dumping;
     logic [7:0] reading_address;
-    logic [2:0] array_index;
+    logic [3:0] array_index;
 
     fifo_state state_prev;
     fifo_state state_prev_2;
@@ -55,7 +57,7 @@ module fifo_sv #(
 
             FILLING: begin
                 adc_counter <= adc_counter + 1;
-                if (adc_counter == 127) begin
+                if (adc_counter == 63) begin
                     state <= DUMPING;
                 end
             end
@@ -114,6 +116,18 @@ module fifo_sv #(
                     7: begin 
                         m00_axis_tdata <= holding_buffer[127:112];
                     end 
+                    8: begin 
+                        m00_axis_tdata <= holding_buffer[143:128];
+                    end 
+                    9: begin 
+                        m00_axis_tdata <= holding_buffer[159:144];
+                    end 
+                    10: begin 
+                        m00_axis_tdata <= holding_buffer[175:160];
+                    end 
+                    11: begin 
+                        m00_axis_tdata <= holding_buffer[191:176];
+                    end 
                 
                     default: begin
                          m00_axis_tdata <= 0;
@@ -121,11 +135,11 @@ module fifo_sv #(
                 endcase
 
                 array_index <= array_index + 1;
-                if (array_index == 7) begin
+                if (array_index == 11) begin
                     reading_address <= reading_address + 1;
                 end
                 // termination logic 
-                if (reading_address == 127 && array_index == 7) begin
+                if (reading_address == 63 && array_index == 11) begin
                     done_dumping <= 1;
                 end
             end else begin
@@ -141,8 +155,8 @@ module fifo_sv #(
     end
 
     xilinx_true_dual_port_read_first_2_clock_ram #(
-        .RAM_WIDTH(128), // 8 16 bit samples
-        .RAM_DEPTH(128)  // 1024 samples in 128 sets of 8
+        .RAM_WIDTH(192), // 8 16 bit samples
+        .RAM_DEPTH(64)  // 1024 samples in 128 sets of 8
     ) fifo_buffer (
         .addra(adc_counter),
         .clka(s00_axis_aclk),
