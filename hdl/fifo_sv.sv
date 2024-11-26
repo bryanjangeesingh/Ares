@@ -27,10 +27,24 @@ module fifo_sv #(
     logic [7:0] reading_address;
     logic [2:0] array_index;
 
+    fifo_state state_prev;
+    fifo_state state_prev_2;
+
+    logic done_dumping_prev;
+    logic done_dumping_prev_2;
+
     assign s00_axis_tready = 1;
     assign m00_axis_tstrb = 16'hF; 
 
     always_ff @(posedge s00_axis_aclk) begin
+        done_dumping_prev <= done_dumping;
+        done_dumping_prev_2 <= done_dumping_prev;
+        if (~s00_axis_aresetn) begin
+            done_dumping_prev <= 0;
+            done_dumping_prev_2 <= 0;
+            adc_counter <= 0;
+            state <= WAITING;
+        end
         case (state)
             WAITING: begin
                 if (laser_trigger) begin
@@ -47,7 +61,7 @@ module fifo_sv #(
             end
 
             DUMPING: begin
-                if (done_dumping) begin
+                if (done_dumping_prev_2) begin
                     state <= WAITING;
                 end
             end
@@ -69,10 +83,43 @@ module fifo_sv #(
         end
 
         else begin
-            if (state == DUMPING) begin
+            state_prev <= state;
+            state_prev_2 <= state_prev;
+            if (state_prev_2 == DUMPING) begin
                 m00_axis_tvalid <= 1;
                 m00_axis_tlast <= 0;
-                m00_axis_tdata <= holding_buffer[array_index << 4 + 15: array_index << 4]; // ASSUMES first sample of the 8 in the LSB
+                
+                case (array_index)      // ASSUMES first sample of the 8 in the LSB
+                    0: begin 
+                        m00_axis_tdata <= holding_buffer[15:0];
+                    end 
+                    1: begin 
+                        m00_axis_tdata <= holding_buffer[31:16];
+                    end 
+                    2: begin 
+                        m00_axis_tdata <= holding_buffer[47:32];
+                    end 
+                    3: begin 
+                        m00_axis_tdata <= holding_buffer[63:48];
+                    end 
+                    4: begin 
+                        m00_axis_tdata <= holding_buffer[79:64];
+                    end 
+                    5: begin 
+                        m00_axis_tdata <= holding_buffer[95:80];
+                    end 
+                    6: begin 
+                        m00_axis_tdata <= holding_buffer[111:96];
+                    end 
+                    7: begin 
+                        m00_axis_tdata <= holding_buffer[127:112];
+                    end 
+                
+                    default: begin
+                         m00_axis_tdata <= 0;
+                    end 
+                endcase
+
                 array_index <= array_index + 1;
                 if (array_index == 7) begin
                     reading_address <= reading_address + 1;
@@ -117,5 +164,6 @@ module fifo_sv #(
     );
 
 endmodule
+
 
 

@@ -98,7 +98,33 @@ module average_sv #(
             endcase
         end
     end
+
+    // xilinx_true_dual_port_read_first_2_clock_ram #(
+    //     .RAM_WIDTH(32), // 8 16 bit samples
+    //     .RAM_DEPTH(SAMPLES_PER_TRIGGER)  // 1024 samples in 128 sets of 8
+    // ) accumulator_buffer (
+    //     .addra(adc_counter),
+    //     .clka(s00_axis_aclk),
+    //     .wea(state == FILLING),
+    //     .dina(s00_axis_tdata),
+    //     .ena(1'b1),
+    //     .regcea(1'b1),
+    //     .rsta(s00_axis_aresetn),
+    //     .douta(),
+
+    //     .addrb(reading_address),
+    //     .dinb(),
+    //     .clkb(m00_axis_aclk),
+    //     .web(1'b0),
+    //     .enb(1'b1),
+    //     .regceb(1'b1),
+    //     .rstb(m00_axis_aresetn),
+    //     .doutb(holding_buffer)
+    // );
+
 endmodule
+
+
 
 
 
