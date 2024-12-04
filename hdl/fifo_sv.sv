@@ -9,62 +9,76 @@ module fifo_sv #(
     input wire [(C_S00_AXIS_TDATA_WIDTH/8)-1: 0] s00_axis_tstrb,
     output logic  s00_axis_tready,
 
-    // Ports of Axi Master Bus Interface M00_AXIS
     input wire  m00_axis_aclk, m00_axis_aresetn, // FIR axis
     input wire  m00_axis_tready,
     output logic  m00_axis_tvalid, m00_axis_tlast,
     output logic [C_M00_AXIS_TDATA_WIDTH-1 : 0] m00_axis_tdata,
-    output logic [(C_M00_AXIS_TDATA_WIDTH/8)-1: 0] m00_axis_tstrb,
+    output logic [(C_M00_AXIS_TDATA_WIDTH/8)-1: 0] m00_axis_tstrb
 
-    input wire laser_trigger
 );
-    
-    typedef enum {WAITING=0, FILLING=1, DUMPING=2} fifo_state;
-    
-    (* ASYNC_REG = "TRUE" *) fifo_state state;
-
-    logic [7:0] adc_counter;
+    typedef enum logic {WAITING=0, DUMPING=1} fifo_state;
+    fifo_state state;
     logic [191:0] holding_buffer;
-    (* ASYNC_REG = "TRUE" *) logic done_dumping;
     logic [7:0] reading_address;
     logic [3:0] array_index;
-
-    fifo_state state_prev;
-    fifo_state state_prev_2;
-
-    logic done_dumping_prev;
-    logic done_dumping_prev_2;
-
-    assign s00_axis_tready = 1;
-    assign m00_axis_tstrb = 16'hF; 
+    assign m00_axis_tstrb = 4'hF;
+    assign m00_axis_tlast = (reading_address == 63 && array_index == 11);
 
     always_ff @(posedge s00_axis_aclk) begin
-        done_dumping_prev <= done_dumping;
-        done_dumping_prev_2 <= done_dumping_prev;
         if (~s00_axis_aresetn) begin
-            done_dumping_prev <= 0;
-            done_dumping_prev_2 <= 0;
-            adc_counter <= 0;
             state <= WAITING;
         end
+
         case (state)
             WAITING: begin
-                if (laser_trigger) begin
-                    state <= FILLING;
-                    adc_counter <= 0;
-                end
-            end
-
-            FILLING: begin
-                adc_counter <= adc_counter + 1;
-                if (adc_counter == 63) begin
+                if (s00_axis_tvalid) begin
                     state <= DUMPING;
+                    s00_axis_tready <= 1;
+                    array_index <= 0;
+                    reading_address <= 0;
+                    holding_buffer <= s00_axis_tdata;
                 end
             end
 
             DUMPING: begin
-                if (done_dumping_prev_2) begin
-                    state <= WAITING;
+                if (s00_axis_tvalid && m00_axis_tready) begin
+                    m00_axis_tvalid <= 1;
+                    
+                    case (array_index)      // ASSUMES first sample of the 8 in the LSB
+                        0: m00_axis_tdata <= holding_buffer[15:0];
+                        1: m00_axis_tdata <= holding_buffer[31:16];
+                        2: m00_axis_tdata <= holding_buffer[47:32];
+                        3: m00_axis_tdata <= holding_buffer[63:48];
+                        4: m00_axis_tdata <= holding_buffer[79:64];
+                        5: m00_axis_tdata <= holding_buffer[95:80];
+                        6: m00_axis_tdata <= holding_buffer[111:96];
+                        7: m00_axis_tdata <= holding_buffer[127:112];
+                        8: m00_axis_tdata <= holding_buffer[143:128];
+                        9: m00_axis_tdata <= holding_buffer[159:144];
+                        10: m00_axis_tdata <= holding_buffer[175:160];
+                        11: m00_axis_tdata <= holding_buffer[191:176];
+                        default: m00_axis_tdata <= 0; 
+                    endcase
+
+                    array_index <= array_index + 1;
+                    if (array_index == 10) begin
+                        s00_axis_tready <= 1;
+                    end
+
+                    if (array_index == 11) begin
+                        reading_address <= reading_address + 1;
+                        s00_axis_tready <= 0;
+                        array_index <= 0;
+                        holding_buffer <= s00_axis_tdata;
+                    end
+
+                    if (reading_address == 63 && array_index == 11) begin
+                        state <= WAITING;
+                        m00_axis_tvalid <= 0;
+                        reading_address <= 0;
+                    end 
+                end else begin
+                    m00_axis_tvalid <= 0;
                 end
             end
 
@@ -72,112 +86,104 @@ module fifo_sv #(
                 state <= WAITING;
             end
         endcase
-
-
     end
-
-    always_ff @(posedge m00_axis_aclk) begin
-        if (~m00_axis_aresetn) begin
-            m00_axis_tvalid <= 0;
-            reading_address <= 0;
-            array_index <= 0;
-            done_dumping <= 0;
-        end
-
-        else begin
-            state_prev <= state;
-            state_prev_2 <= state_prev;
-            if (state_prev_2 == DUMPING) begin
-                m00_axis_tvalid <= 1;
-                m00_axis_tlast <= 0;
-                
-                case (array_index)      // ASSUMES first sample of the 8 in the LSB
-                    0: begin 
-                        m00_axis_tdata <= holding_buffer[15:0];
-                    end 
-                    1: begin 
-                        m00_axis_tdata <= holding_buffer[31:16];
-                    end 
-                    2: begin 
-                        m00_axis_tdata <= holding_buffer[47:32];
-                    end 
-                    3: begin 
-                        m00_axis_tdata <= holding_buffer[63:48];
-                    end 
-                    4: begin 
-                        m00_axis_tdata <= holding_buffer[79:64];
-                    end 
-                    5: begin 
-                        m00_axis_tdata <= holding_buffer[95:80];
-                    end 
-                    6: begin 
-                        m00_axis_tdata <= holding_buffer[111:96];
-                    end 
-                    7: begin 
-                        m00_axis_tdata <= holding_buffer[127:112];
-                    end 
-                    8: begin 
-                        m00_axis_tdata <= holding_buffer[143:128];
-                    end 
-                    9: begin 
-                        m00_axis_tdata <= holding_buffer[159:144];
-                    end 
-                    10: begin 
-                        m00_axis_tdata <= holding_buffer[175:160];
-                    end 
-                    11: begin 
-                        m00_axis_tdata <= holding_buffer[191:176];
-                    end 
-                
-                    default: begin
-                         m00_axis_tdata <= 0;
-                    end 
-                endcase
-
-                array_index <= array_index + 1;
-                if (array_index == 11) begin
-                    reading_address <= reading_address + 1;
-                end
-                // termination logic 
-                if (reading_address == 63 && array_index == 11) begin
-                    done_dumping <= 1;
-                end
-            end else begin
-                m00_axis_tvalid <= 0;
-                reading_address <= 0;
-                array_index <= 0;
-                if (done_dumping) begin
-                    done_dumping <= 0;
-                    m00_axis_tlast <= 1;
-                end
-            end
-        end
-    end
-
-    xilinx_true_dual_port_read_first_2_clock_ram #(
-        .RAM_WIDTH(192), // 8 16 bit samples
-        .RAM_DEPTH(64)  // 1024 samples in 128 sets of 8
-    ) fifo_buffer (
-        .addra(adc_counter),
-        .clka(s00_axis_aclk),
-        .wea(state == FILLING),
-        .dina(s00_axis_tdata),
-        .ena(1'b1),
-        .regcea(1'b1),
-        .rsta(s00_axis_aresetn),
-        .douta(),
-
-        .addrb(reading_address),
-        .dinb(),
-        .clkb(m00_axis_aclk),
-        .web(1'b0),
-        .enb(1'b1),
-        .regceb(1'b1),
-        .rstb(m00_axis_aresetn),
-        .doutb(holding_buffer)
-    );
-
 endmodule
+
+//     // typedef enum logic [1:0] {WAITING=0, FILLING=1, DUMPING=2} fifo_state;
+//     logic [1:0] state;
+
+
+//     logic [5:0] adc_counter;
+//     logic [191:0] holding_buffer;
+//     logic [7:0] reading_address;
+//     logic [3:0] array_index;
+    
+
+//     assign s00_axis_tready = 1;
+//     assign m00_axis_tstrb = 32'hFFFF; 
+//     assign m00_axis_tlast = (reading_address == 63 && array_index == 11);
+
+
+//     always_ff @(posedge s00_axis_aclk) begin
+//         if (~s00_axis_aresetn) begin
+//             state <= WAITING;
+//         end
+//         case (state)
+//             WAITING: begin
+//                 if (s00_axis_tvalid) begin
+//                     state <= FILLING;
+//                     adc_counter <= 0;
+//                 end
+//             end
+
+//             FILLING: begin
+//                 adc_counter <= adc_counter + 1;
+//                 if (adc_counter == 63) begin
+//                     state <= DUMPING;
+//                     array_index <= 0;
+//                     reading_address <= 0;
+//                 end
+//             end
+
+//             DUMPING: begin
+//                 m00_axis_tvalid <= 1;
+                
+//                 case (array_index)      // ASSUMES first sample of the 8 in the LSB
+//                     0: begin 
+//                         m00_axis_tdata <= holding_buffer[15:0];
+//                     end 
+//                     1: begin 
+//                         m00_axis_tdata <= holding_buffer[31:16];
+//                     end 
+//                     2: begin 
+//                         m00_axis_tdata <= holding_buffer[47:32];
+//                     end 
+//                     3: begin 
+//                         m00_axis_tdata <= holding_buffer[63:48];
+//                     end 
+//                     4: begin 
+//                         m00_axis_tdata <= holding_buffer[79:64];
+//                     end 
+//                     5: begin 
+//                         m00_axis_tdata <= holding_buffer[95:80];
+//                     end 
+//                     6: begin 
+//                         m00_axis_tdata <= holding_buffer[111:96];
+//                     end 
+//                     7: begin 
+//                         m00_axis_tdata <= holding_buffer[127:112];
+//                     end 
+//                     8: begin 
+//                         m00_axis_tdata <= holding_buffer[143:128];
+//                     end 
+//                     9: begin 
+//                         m00_axis_tdata <= holding_buffer[159:144];
+//                     end 
+//                     10: begin 
+//                         m00_axis_tdata <= holding_buffer[175:160];
+//                     end 
+//                     11: begin 
+//                         m00_axis_tdata <= holding_buffer[191:176];
+//                     end 
+//                     default: begin
+//                          m00_axis_tdata <= 0;
+//                     end 
+//                 endcase
+//                 array_index <= array_index + 1;
+//                 if (array_index == 11) begin
+//                     reading_address <= reading_address + 1;
+//                 end
+//                 // termination logic 
+//                 if (reading_address == 63 && array_index == 11) begin
+//                     state <= WAITING;
+//                     m00_axis_tvalid <= 0;
+//                     reading_address <= 0;
+//                     array_index <= 0;
+//                 end
+//             end
+//         endcase
+//     end
+// endmodule
 
 
 

@@ -1,16 +1,16 @@
 module trigger_sv(
     input wire clk_in, //150 MHz
-    input wire rst_in,
+    input wire rstn,
     output logic trigger);
 
     logic [19:0] counter;
 
-    assign trigger = (counter == 149999);
+    assign trigger = (counter == 99999);
     
     always_ff @(posedge clk_in) begin
-        if(~rst_in) begin
+        if(~rstn) begin
             counter <= 0;
-        end else if (counter == 149999) begin
+        end else if (counter == 99999) begin
             counter <= 0;
         end else begin
             counter <= counter + 1;
