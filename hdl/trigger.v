@@ -1,8 +1,17 @@
-module trigger(input wire clk_in, input wire rst_in, output wire trigger);
+module trigger(input wire clk_in, 
+                input wire rstn, 
+                output wire trigger);
 
-    trigger_sv trigger_inst(
-        .clk_in(clk_in),
-        .rst_in(rst_in),
-        .trigger(trigger)
-    );
+    reg [19:0] counter;
+    assign trigger = (counter == 409600);
+    
+    always @(posedge clk_in) begin
+        if (~rstn) begin
+            counter <= 0;
+        end else if (counter == 409600) begin
+            counter <= 0;
+        end else begin
+            counter <= counter + 1;
+        end
+    end
 endmodule
